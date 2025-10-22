@@ -1,15 +1,16 @@
 import time
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-
 import gymnasium as gym
+import pandas as pd
+#from tarware.heuristic import heuristic_episode
+from tarware.heuristic_DQN_new import heuristic_episode
 
-from tarware.heuristic import heuristic_episode
 
 parser = ArgumentParser(description="Run tests with vector environments on WarehouseEnv", formatter_class=ArgumentDefaultsHelpFormatter)
 
 parser.add_argument(
         "--num_episodes",
-        default=1000,
+        default=100,
         type=int,
         help="The seed to run with"
     )
@@ -45,9 +46,14 @@ def info_statistics(infos, global_episode_return, episode_returns):
     return last_info
 
 if __name__ == "__main__":
+
     env = gym.make("tarware-extralarge-14agvs-7pickers-partialobs-v1")
     seed = args.seed
     completed_episodes = 0
+
+    # 新增：创建空的 DataFrame
+    results_df = pd.DataFrame(columns=['episode_id', 'overall_pick_rate', 'global_return', 'total_deliveries', 'total_clashes', 'total_stuck', 'episode_length', 'FPS'])
+
     for i in range(args.num_episodes):
         start = time.time()
         infos, global_episode_return, episode_returns = heuristic_episode(env.unwrapped, args.render, seed+i)
@@ -57,3 +63,18 @@ if __name__ == "__main__":
         episode_length = len(infos)
         print(f"Completed Episode {completed_episodes}: | [Overall Pick Rate={last_info.get('overall_pick_rate'):.2f}]| [Global return={last_info.get('global_episode_return'):.2f}]| [Total shelf deliveries={last_info.get('total_deliveries'):.2f}]| [Total clashes={last_info.get('total_clashes'):.2f}]| [Total stuck={last_info.get('total_stuck'):.2f}] | [FPS = {episode_length/(end-start):.2f}]")
         completed_episodes += 1
+
+        # 新增：将数据添加到 DataFrame
+        results_df = results_df.append({
+        'episode_id': completed_episodes,
+        'overall_pick_rate': last_info["overall_pick_rate"],
+        'global_return': last_info["global_episode_return"],
+        'total_deliveries': last_info["total_deliveries"],
+        'total_clashes': last_info["total_clashes"],
+        'total_stuck': last_info["total_stuck"],
+        'episode_length': episode_length,
+        'FPS': episode_length/(end-start)
+        }, ignore_index=True)
+
+        # 新增：保存 DataFrame 到 CSV 文件
+        results_df.to_csv('results1.csv', index=False)
